@@ -1,0 +1,40 @@
+{
+    "name": "oitmain/yii2-smart-cron",
+    "description": "Smart cron module for Yii2",
+    "keywords": ["yii2", "yii2-user", "cron", "oitmain"],
+    "type": "yii2-extension",
+    "license": "Internal",
+    "support": {
+        "issues": "https://github.com/oitmain/yii2-smart-cron/issues?state=open",
+        "source": "https://github.com/oitmain/yii2-smart-cron"
+    },
+    "authors": [
+        {
+            "name": "Oitmain, Inc",
+            "email": "server@oitmain.com",
+            "homepage": "http://oitmain.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "yiisoft/yii2": "~2.0",
+        "yiisoft/yii2-bootstrap": "~2.0",
+        "mtdowling/cron-expression": "1.0.4"
+    },
+    "require-dev": {
+    },
+    "autoload": {
+        "psr-4": {
+            "oitmain\\smartcron\\": ""
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.0.x-dev"
+        },
+        "asset-installer-paths": {
+            "npm-asset-library": "vendor/npm",
+            "bower-asset-library": "vendor/bower"
+        }
+    }
+}
