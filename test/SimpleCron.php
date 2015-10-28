@@ -3,15 +3,16 @@
 namespace oitmain\smartcron\test;
 
 use oitmain\smartcron\models\base\BaseCron;
+use Yii;
 
 class SimpleCron extends BaseCron
 {
 
-    protected $_i = 3;
+    protected $_i = 20;
 
     public function getSchedule()
     {
-        return '* * * * *';
+        return '0/5 * * * *';
     }
 
     public function getName()
@@ -19,43 +20,58 @@ class SimpleCron extends BaseCron
         return 'simple_cron';
     }
 
-    public function reset()
+    protected function getCacheKey($cronId, $cronDetailId)
     {
-        $this->_i = 3;
+        return 'simple_cron_' . $cronId;
     }
 
-    public function loop($cronId, $cronDetailId)
+    public function eventReset()
     {
-        $this->_i --;
+        $this->_i = 20;
+    }
+
+    public function eventLoop($cronId, $cronDetailId)
+    {
+        $this->_i--;
+
+        var_dump($this->_i);
 
         sleep(1);
+
+        return false;
 
         return $this->_i > 0;
     }
 
-    public function died($cronId, $cronDetailId)
+    public function eventFinished($cronId, $cronDetailId)
     {
-
+        Yii::$app->cache->delete($this->getCacheKey($cronId, $cronDetailId));
     }
 
-    public function paused($cronId, $cronDetailId)
+    public function eventPaused($cronId, $cronDetailId)
     {
-
+        Yii::$app->cache->set($this->getCacheKey($cronId, $cronDetailId), $this->_i);
     }
 
-    public function resume($cronId, $cronDetailId)
+    public function eventResume($cronId, $cronDetailId)
     {
-
+        $this->_i = Yii::$app->cache->get($this->getCacheKey($cronId, $cronDetailId));
+        if (!$this->_i) $this->_i = 0;
     }
 
-    public function failed($cronId, $cronDetailId)
+    public function cleanupFailed($cronId, $cronDetailId)
     {
-
+        Yii::$app->cache->delete($this->getCacheKey($cronId, $cronDetailId));
     }
 
-    public function timedout($cronId, $cronDetailId)
+    public function cleanupTimedOut($cronId, $cronDetailId)
     {
+        Yii::$app->cache->delete($this->getCacheKey($cronId, $cronDetailId));
+    }
 
+    public function cleanupDied($cronId, $cronDetailId)
+    {
+        Yii::$app->cache->delete($this->getCacheKey($cronId, $cronDetailId));
     }
 
 }

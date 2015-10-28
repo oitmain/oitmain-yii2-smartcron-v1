@@ -3,8 +3,9 @@
 namespace oitmain\smartcron\models\base;
 
 use Cron\CronExpression;
+use DateInterval;
 use DateTime;
-use DateTimeZone;
+use Exception;
 use oitmain\smartcron\models\CronMutex;
 use oitmain\smartcron\models\CronResult;
 use oitmain\smartcron\models\db\Cron;
@@ -33,118 +34,218 @@ abstract class BaseCron
     protected $_db = null;
 
     /*
-     * schedule # of crons ahead
+     * schedule # day ahead
      */
-    protected $_scheduleAhead = 10;
+    protected $_scheduleAheadDay = 1;
 
-    protected $_dbCron = null;
+    protected $_maxScheduleCount = 1000;
+
+    protected $_minScheduleCount = 1;
+
+    /*
+     * Timeout cron job before # of seconds from next cron job
+     */
+    protected $_timeoutBuffer = 15;
+
+    /*
+     * Do not time out
+     */
+    protected $_forceRun = false;
+
+    /*
+     * Pause the cron after running x time, resume on next run
+     */
+    protected $_pauseAfter = 5; // seconds
+
+    protected $_scheduleExpression = null;
 
     abstract public function getSchedule();
 
     abstract public function getName();
 
-    protected function databaseCreateSchedule()
+    public function getHeartbeatExpires()
     {
-        $dbCron = new Cron();
-        $scheduleExpression = $this->getScheduleExpression();
-        $scheduleDTs = $scheduleExpression->getMultipleRunDates($this->_scheduleAhead, 'now', false, true);
-
-        $dbCron->createBatchSchedule($this, $scheduleDTs);
-    }
-
-    protected function databaseMarkMissedSchedule()
-    {
-        $cron = new Cron();
-        $scheduleExpression = $this->getScheduleExpression();
-        $scheduleDTs = $scheduleExpression->getMultipleRunDates($this->_scheduleAhead, 'now', false, true);
-
-        $cron->createBatchSchedule($this, $scheduleDTs);
+        return $this->_heartbeatExpires;
     }
 
 
     public function getScheduleExpression()
     {
-        return CronExpression::factory($this->getSchedule());
+        if (!$this->_scheduleExpression) {
+            $this->_scheduleExpression = CronExpression::factory($this->getSchedule());
+        }
+        return $this->_scheduleExpression;
     }
-
-    protected function cleanupTimeout()
-    {
-
-    }
-
 
     /**
-     * @param bool|true $lock
-     * @return Cron
+     * @param Cron $dbCron
+     * @return bool
      */
-    protected function acquireCron($lock = true)
+    protected function isDbCronDue($dbCron)
     {
-        $currentDT = new DateTime('now', new DateTimeZone('UTC'));
+        $currentST = date('Y-m-d H:i');
 
-        $scheduleExpression = $this->getScheduleExpression();
-        if ($scheduleExpression->isDue($currentDT)) {
-            $scheduleDT = $scheduleExpression->getNextRunDate($currentDT, 0, true);
+        $scheduleDT = new DateTime($dbCron->scheduled_at . ' UTC');
+        $scheduleDT->setTimezone(new \DateTimeZone(date_default_timezone_get()));
+        $scheduleST = $scheduleDT->format('Y-m-d H:i');
 
-            $dbCron = new Cron();
-            $scheduledDbCron = $dbCron->getBySchedule($this, $scheduleDT)->one();
+        return $currentST == $scheduleST;
+    }
 
-            if ($scheduledDbCron && CronMutex::acquireCronDate($this->getName(), $scheduleDT)) {
-                return $scheduledDbCron;
-            }
-        }
+    /**
+     * @return Cron|boolean
+     */
+    protected function getNextScheduledDbCron()
+    {
+        return Cron::getNextScheduled($this)->one($this->_db);
+    }
 
-        return false;
+    /**
+     * @param $dbCron Cron
+     * @return boolean
+     */
+    protected function acquireDbCron($dbCron)
+    {
+        $scheduleDT = new DateTime($dbCron->scheduled_at . ' UTC');
+        return CronMutex::acquireCronDate($this->getName(), $scheduleDT);
     }
 
     /**
      * @param $dbCron Cron
      */
-    protected function releaseCron($dbCron)
+    protected function releaseDbCron($dbCron)
     {
         $scheduleDT = new DateTime($dbCron->scheduled_at . ' UTC');
         CronMutex::releaseCronDate($this->getName(), $scheduleDT);
     }
 
-    public function run()
+    protected function getRunningCrons()
     {
-        $this->databaseCreateSchedule();
+        $runningCrons = Cron::getAllRunningCrons($this)->all($this->_db);
+        return $runningCrons;
+    }
 
-        $dbCron = $this->acquireCron();
-        if ($dbCron) {
+    protected function getPausedCron()
+    {
+        $pausedCron = Cron::getAllPausedCrons($this)->orderBy(['scheduled_at' => SORT_ASC])->one($this->_db);
+        return $pausedCron;
+    }
 
-            $dbCron->start_mt = microtime(true);
-            $dbCron->status = Cron::STATUS_RUNNING;
-            $dbCron->save();
-
-            $this->internalRun();
-
-            $dbCron->status = Cron::STATUS_SUCCESS;
-            $dbCron->end_mt = microtime(true);
-            $dbCron->save();
-
-            $this->releaseCron($dbCron);
+    public function cleanupDirtyCrons()
+    {
+        /* @var Cron[] $dirtyCrons */
+        $dirtyCrons = Cron::getAllDirtyCrons($this)->all($this->_db);
+        foreach ($dirtyCrons as $dirtyCron) {
+            switch ($dirtyCron->status) {
+                case Cron::STATUS_TIMEOUT:
+                    $this->cleanupTimedOut($dirtyCron->id, 0);
+                    $dirtyCron->doCleanup();
+                    break;
+                case Cron::STATUS_ERROR:
+                    $this->cleanupFailed($dirtyCron->id, 0);
+                    $dirtyCron->doCleanup();
+                    break;
+                case Cron::STATUS_DEAD:
+                    $this->cleanupDied($dirtyCron->id, 0);
+                    $dirtyCron->doCleanup();
+                    break;
+            }
         }
+        return $this;
+    }
 
-        // $this->databaseMarkMissedSchedule();
+
+    public function run($createSchedule = true)
+    {
+        if ($createSchedule) $this->databaseCreateSchedule();
 
         $cronResult = new CronResult();
+        $cronResult->cron = $this;
+
+        /*
+         * [Cron manager does this task]
+         * Look for a existing RUNNING job
+         * KILL it if heart beat is over heartbeatExpires
+         */
+
+        if ($this->getRunningCrons()) {
+            return $cronResult;
+        }
+
+
+        /*
+         * Look for paused cron, if found resume
+         * else look for due cron, if found start
+         */
+
+
+        /*
+         * Get current schedule and get next schedule
+         * timeout and cleanup if job exceeds next schedule (15 seconds before next schedule)
+         *
+         */
+
+
+        //$dbCron -> lock seperately because it can be retrieved by pause and new
+        // $dbCron = $this->acquireCron();
+
+        $pausedDbCron = $this->getPausedCron();
+        $nextScheduledDbCron = $this->getNextScheduledDbCron();
+
+        $dbCron = $pausedDbCron ? $pausedDbCron : null;
+        if (!$pausedDbCron && $this->isDbCronDue($nextScheduledDbCron)) {
+            $dbCron = $nextScheduledDbCron;
+        }
+
+        if ($dbCron && $this->acquireDbCron($dbCron)) {
+
+            $timeoutT = $this->getScheduleExpression()
+                ->getNextRunDate(new DateTime($dbCron->scheduled_at . ' UTC'))
+                ->getTimestamp();
+            $timeoutT -= $this->_timeoutBuffer;
+
+            $startMT = microtime(true);
+
+            if ($dbCron->doResume()) {
+                $this->eventResume($dbCron->id, 0);
+            } else {
+                $dbCron->doStart();
+                $this->eventReset();
+            }
+
+            try {
+                while ($this->eventLoop($dbCron->id, 0)) {
+                    $dbCron->doHeartbeat();
+
+                    if (time() > $timeoutT) {
+                        $this->cleanupTimedOut($dbCron->id, 0);
+                        $dbCron->doTimeout();
+                        break;
+                    }
+
+                    if (microtime(true) - $startMT > $this->_pauseAfter) {
+                        $this->eventPaused($dbCron->id, 0);
+                        $dbCron->doPause();
+                        break;
+                    }
+                }
+
+                if ($dbCron->status == Cron::STATUS_RUNNING) {
+                    $this->eventFinished($dbCron->id, 0);
+                    $dbCron->doFinish();
+                }
+            } catch (Exception $e) {
+                $this->cleanupFailed($dbCron->id, 0);
+                $dbCron->doError();
+                $this->releaseDbCron($dbCron);
+                throw $e;
+            }
+
+            $this->releaseDbCron($dbCron);
+        }
+
+
         return $cronResult;
-    }
-
-
-    protected function heartbeat()
-    {
-
-    }
-
-    protected function isTimeout()
-    {
-
-    }
-
-    protected function pause()
-    {
-
     }
 
 
@@ -167,8 +268,46 @@ abstract class BaseCron
 
     abstract public function cleanupFailed($cronId, $cronDetailId);
 
-    abstract public function cleanupTimedout($cronId, $cronDetailId);
+    abstract public function cleanupTimedOut($cronId, $cronDetailId);
 
     abstract public function cleanupDied($cronId, $cronDetailId);
+
+
+    public function databaseMarkMissedSchedule()
+    {
+        Cron::updateAllMissedCrons($this);
+        return $this;
+    }
+
+    public function databaseMarkDeadSchedule()
+    {
+        Cron::updateAllDeadCrons($this);
+        return $this;
+    }
+
+    public function databaseCreateSchedule()
+    {
+        $scheduleExpression = $this->getScheduleExpression();
+
+        $toDT = new DateTime();
+        $toDT->add(DateInterval::createFromDateString($this->_scheduleAheadDay . ' day'));
+
+        $fromDt = new DateTime();
+        $scheduleDT = $scheduleExpression->getNextRunDate($fromDt, 0, true);;
+
+        $scheduleDTs = array();
+
+        for ($i = 0; $i < $this->_maxScheduleCount; $i++) {
+
+            if ($scheduleDT > $toDT && $i > $this->_minScheduleCount) {
+                break;
+            }
+            $scheduleDTs[$scheduleDT->getTimestamp()] = $scheduleDT;
+
+            $scheduleDT = $scheduleExpression->getNextRunDate($scheduleDT, 0, false);
+        }
+
+        Cron::insertAllSchedule($this, $scheduleDTs);
+    }
 
 }

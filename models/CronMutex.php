@@ -3,6 +3,7 @@
 namespace oitmain\smartcron\models;
 
 use DateTime;
+use oitmain\smartcron\models\base\BaseCron;
 use Yii;
 use yii\base\ErrorException;
 use yii\mutex\Mutex;
@@ -36,33 +37,62 @@ class CronMutex
 
     /**
      * @param $name
-     * @param $DT DateTime
+     * @param DateTime $DT
      * @return boolean
      */
     static function acquireCronDate($name, $DT)
     {
-        return static::getMutex()->acquire(static::getCronDateKey($name, $DT));
-    }
-
-    /*
-     * @param $name
-     * @param $DT DateTime
-     * @return string
-     */
-    static function getCronDateKey($name, $DT)
-    {
-        return 'cron_mutex_' . $name . '_' . $DT->getTimestamp();
+        return static::getMutex()->acquire(static::getCronDateMutexKey($name, $DT));
     }
 
     /**
      * @param $name
-     * @param $DT DateTime
+     * @param DateTime $DT
      * @return boolean
      */
     static function releaseCronDate($name, $DT)
     {
-        return static::getMutex()->release(static::getCronDateKey($name, $DT));
+        return static::getMutex()->release(static::getCronDateMutexKey($name, $DT));
     }
 
 
+    /**
+     * @param BaseCron $cron
+     * @return bool
+     * @throws ErrorException
+     */
+    static function acquireCron(&$cron)
+    {
+        return static::getMutex()->acquire(static::getCronMutexKey($cron->getName()));
+    }
+
+    /**
+     * @param BaseCron $cron
+     * @return bool
+     * @throws ErrorException
+     */
+    static function releaseCron(&$cron)
+    {
+        return static::getMutex()->release(static::getCronMutexKey($cron->getName()));
+    }
+
+
+    /**
+     * @param string $name
+     * @param DateTime $DT
+     * @return string
+     */
+    static function getCronDateMutexKey($name, $DT)
+    {
+        return static::getCronMutexKey($name) . '_' . $DT->getTimestamp();
+    }
+
+    /**
+     * @param string $name
+     * @return string
+     */
+    static function getCronMutexKey($name)
+    {
+        return 'cron_mutex_' . $name;
+    }
 }
