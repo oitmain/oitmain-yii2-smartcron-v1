@@ -1,10 +1,10 @@
 <?php
 
-namespace oitmain\smartcron\models\base;
+namespace oitmain\yii2\smartcron\v1\models\base;
 
 /**
  * Class BaseCronSorter
- * @package oitmain\smartcron\models\base
+ * @package oitmain\yii2\smartcron\v1\models\base
  */
 abstract class BaseCronSorter
 {

@@ -1,4 +1,4 @@
-# yii2-smart-cron
+# yii2-smartcron
 Framework to create and manage cron tasks
 
 

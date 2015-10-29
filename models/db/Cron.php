@@ -1,10 +1,10 @@
 <?php
 
-namespace oitmain\smartcron\models\db;
+namespace oitmain\yii2\smartcron\v1\models\db;
 
 use DateTime;
 use DateTimeZone;
-use oitmain\smartcron\models\CronMutex;
+use oitmain\yii2\smartcron\v1\models\CronMutex;
 use Yii;
 use yii\base\ErrorException;
 
@@ -56,7 +56,7 @@ class Cron extends BaseCron
     }
 
     /**
-     * @param bool|\oitmain\smartcron\models\base\BaseCron $cron
+     * @param bool|\oitmain\yii2\smartcron\v1\models\base\BaseCron $cron
      * @return \yii\db\ActiveQuery
      */
     static function getAllScheduledCrons(&$cron = false)
@@ -73,7 +73,7 @@ class Cron extends BaseCron
     }
 
     /**
-     * @param bool|\oitmain\smartcron\models\base\BaseCron $cron
+     * @param bool|\oitmain\yii2\smartcron\v1\models\base\BaseCron $cron
      * @return \yii\db\ActiveQuery
      */
     static function getAllDirtyCrons(&$cron = false)
@@ -91,7 +91,7 @@ class Cron extends BaseCron
 
 
     /**
-     * @param bool|\oitmain\smartcron\models\base\BaseCron $cron
+     * @param bool|\oitmain\yii2\smartcron\v1\models\base\BaseCron $cron
      * @return integer the number of rows updated
      */
     static function updateAllMissedCrons(&$cron)
@@ -110,7 +110,7 @@ class Cron extends BaseCron
     }
 
     /**
-     * @param bool|\oitmain\smartcron\models\base\BaseCron $cron
+     * @param bool|\oitmain\yii2\smartcron\v1\models\base\BaseCron $cron
      * @return integer the number of rows updated
      */
     static function updateAllDeadCrons(&$cron)
@@ -146,7 +146,7 @@ class Cron extends BaseCron
     }
 
     /**
-     * @param bool|\oitmain\smartcron\models\base\BaseCron $cron
+     * @param bool|\oitmain\yii2\smartcron\v1\models\base\BaseCron $cron
      * @return \yii\db\ActiveQuery
      */
     static function getAllMissedCrons(&$cron = false)
@@ -164,7 +164,7 @@ class Cron extends BaseCron
 
 
     /**
-     * @param bool|\oitmain\smartcron\models\base\BaseCron $cron
+     * @param bool|\oitmain\yii2\smartcron\v1\models\base\BaseCron $cron
      * @return \yii\db\ActiveQuery
      */
     static function getAllRunningCrons(&$cron = false)
@@ -180,7 +180,7 @@ class Cron extends BaseCron
     }
 
     /**
-     * @param bool|\oitmain\smartcron\models\base\BaseCron $cron
+     * @param bool|\oitmain\yii2\smartcron\v1\models\base\BaseCron $cron
      * @return \yii\db\ActiveQuery
      */
     static function getAllPausedCrons(&$cron = false)
@@ -197,7 +197,7 @@ class Cron extends BaseCron
 
     /**
      * @param DateTime $DT
-     * @param bool|\oitmain\smartcron\models\base\BaseCron $cron
+     * @param bool|\oitmain\yii2\smartcron\v1\models\base\BaseCron $cron
      * @return \yii\db\ActiveQuery
      */
     static function getOneBySchedule($DT, &$cron = false)
@@ -217,7 +217,7 @@ class Cron extends BaseCron
 
 
     /**
-     * @param bool|\oitmain\smartcron\models\base\BaseCron $cron
+     * @param bool|\oitmain\yii2\smartcron\v1\models\base\BaseCron $cron
      * @return \yii\db\ActiveQuery
      */
     static function getNextScheduled(&$cron = false)
@@ -235,7 +235,7 @@ class Cron extends BaseCron
 
 
     /**
-     * @param $cron \oitmain\smartcron\models\base\BaseCron
+     * @param $cron \oitmain\yii2\smartcron\v1\models\base\BaseCron
      * @param $DTs DateTime[]
      * @return DateTime[]
      */
@@ -317,7 +317,7 @@ class Cron extends BaseCron
     }
 
     /**
-     * @param $cron \oitmain\smartcron\models\base\BaseCron
+     * @param $cron \oitmain\yii2\smartcron\v1\models\base\BaseCron
      * @param $DT DateTime
      * @return Cron
      * @throws ErrorException

@@ -1,15 +1,15 @@
 <?php
 
-namespace oitmain\smartcron\models\base;
+namespace oitmain\yii2\smartcron\v1\models\base;
 
 use Cron\CronExpression;
 use DateInterval;
 use DateTime;
 use Exception;
-use oitmain\smartcron\models\CronManager;
-use oitmain\smartcron\models\CronMutex;
-use oitmain\smartcron\models\CronResult;
-use oitmain\smartcron\models\db\Cron;
+use oitmain\yii2\smartcron\v1\models\CronManager;
+use oitmain\yii2\smartcron\v1\models\CronMutex;
+use oitmain\yii2\smartcron\v1\models\CronResult;
+use oitmain\yii2\smartcron\v1\models\db\Cron;
 use Yii;
 use yii\web\Controller;
 

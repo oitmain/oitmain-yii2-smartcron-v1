@@ -1,12 +1,12 @@
 {
-    "name": "oitmain/yii2-smart-cron",
+    "name": "oitmain/yii2-smartcron-v1",
     "description": "Smart cron module for Yii2",
     "keywords": ["yii2", "yii2-user", "cron", "oitmain"],
     "type": "yii2-extension",
     "license": "Internal",
     "support": {
-        "issues": "https://github.com/oitmain/yii2-smart-cron/issues?state=open",
-        "source": "https://github.com/oitmain/yii2-smart-cron"
+        "issues": "https://github.com/oitmain/oitmain-yii2-smartcron-v1/issues?state=open",
+        "source": "https://github.com/oitmain/oitmain-yii2-smartcron-v1"
     },
     "authors": [
         {
@@ -25,7 +25,7 @@
     },
     "autoload": {
         "psr-4": {
-            "oitmain\\smartcron\\": ""
+            "oitmain\\yii2\\smartcron\\v1\\": ""
         }
     },
     "extra": {

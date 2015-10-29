@@ -1,15 +1,15 @@
 <?php
 
-namespace oitmain\smartcron\models;
+namespace oitmain\yii2\smartcron\v1\models;
 
 use DateTime;
-use oitmain\smartcron\models\base\BaseCron;
-use oitmain\smartcron\models\base\BaseCronSorter;
-use oitmain\smartcron\models\db\Cron;
+use oitmain\yii2\smartcron\v1\models\base\BaseCron;
+use oitmain\yii2\smartcron\v1\models\base\BaseCronSorter;
+use oitmain\yii2\smartcron\v1\models\db\Cron;
 
 /**
  * Class FifoCronSorter
- * @package oitmain\smartcron\models
+ * @package oitmain\yii2\smartcron\v1\models
  */
 class FifoCronSorter extends BaseCronSorter
 {
