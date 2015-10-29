@@ -8,7 +8,7 @@ use Yii;
 class SimpleCron extends BaseCron
 {
 
-    protected $_i = 20;
+    protected $_i = 10;
 
     public function getSchedule()
     {
