@@ -1,8 +1,8 @@
 <?php
 
-namespace oitmain\smartcron\test;
+namespace oitmain\yii2\smartcron\v1\test;
 
-use oitmain\smartcron\models\base\BaseCron;
+use oitmain\yii2\smartcron\v1\models\base\BaseCron;
 use Yii;
 
 class SimpleCron extends BaseCron

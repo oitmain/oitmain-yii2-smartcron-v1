@@ -1,6 +1,6 @@
 <?php
 
-namespace oitmain\smartcron\models;
+namespace oitmain\yii2\smartcron\v1\models;
 
 class CronResult
 {

@@ -1,16 +1,16 @@
 <?php
 
-namespace oitmain\smartcron\models;
+namespace oitmain\yii2\smartcron\v1\models;
 
 use DateTime;
-use oitmain\smartcron\models\base\BaseCron;
+use oitmain\yii2\smartcron\v1\models\base\BaseCron;
 use Yii;
 use yii\base\ErrorException;
 use yii\mutex\Mutex;
 
 /**
  * Class CronMutex
- * @package oitmain\smartcron
+ * @package oitmain\yii2\smartcron\v1
  */
 class CronMutex
 {
