@@ -15,11 +15,6 @@ class SimpleCron extends BaseCron
         return '0/5 * * * *';
     }
 
-    public function getName()
-    {
-        return 'simple_cron';
-    }
-
     protected function getCacheKey($cronId, $cronDetailId)
     {
         return 'simple_cron_' . $cronId;

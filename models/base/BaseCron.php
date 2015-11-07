@@ -9,6 +9,7 @@ use Exception;
 use oitmain\yii2\smartcron\v1\models\CronMutex;
 use oitmain\yii2\smartcron\v1\models\CronResult;
 use oitmain\yii2\smartcron\v1\models\db\Cron;
+use yii\helpers\Inflector;
 
 abstract class BaseCron
 {
@@ -61,7 +62,16 @@ abstract class BaseCron
 
     abstract public function getSchedule();
 
-    abstract public function getName();
+    public function getName()
+    {
+        $className = get_called_class();
+        $namespacePos = strrpos($className, '\\');
+        if ($namespacePos) {
+            $className = substr($className, $namespacePos + 1);
+        }
+
+        return Inflector::camel2id($className);
+    }
 
     public function getHeartbeatExpires()
     {
@@ -169,7 +179,7 @@ abstract class BaseCron
          */
 
         if ($this->getRunningCrons()) {
-            return $cronResult;
+            return false;
         }
 
 

@@ -28,7 +28,7 @@ class CronManager
     }
 
     /**
-     * @return bool
+     * @return bool|CronResult
      */
     public function run()
     {
