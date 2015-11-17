@@ -407,4 +407,56 @@ class Cron extends BaseCron
         $this->save(false);
     }
 
+    public static function getScheduledCountInNextDays($days = 1)
+    {
+        $command = static::getDb()->createCommand('
+            SELECT
+                count(id) AS count
+            FROM
+                cron
+            WHERE
+                scheduled_at <= NOW() + INTERVAL ' . $days . ' DAY
+            AND scheduled_at > NOW()
+            AND status = \'' . static::STATUS_SCHEDULED . '\'
+            GROUP BY
+                status');
+
+        $result = $command->queryOne();
+
+        return $result ? $result['count'] : 0;
+    }
+
+    public static function getStatusCountsInDays($days = 1)
+    {
+        $command = static::getDb()->createCommand('
+            SELECT
+                count(id) AS count,
+                status
+            FROM
+                cron
+            WHERE
+                scheduled_at >= NOW() - INTERVAL ' . $days . ' DAY
+            AND scheduled_at < NOW()
+            GROUP BY
+                status');
+
+        $result = $command->queryAll();
+
+        $statuses = [
+            static::STATUS_DEAD => 0,
+            static::STATUS_SUCCESS => 0,
+            static::STATUS_TIMEOUT => 0,
+            static::STATUS_ERROR => 0,
+            static::STATUS_RUNNING => 0,
+            static::STATUS_PAUSED => 0,
+            static::STATUS_SCHEDULED => 0,
+            static::STATUS_MISSED => 0,
+        ];
+
+        foreach ($result as $row) {
+            $statuses[$row['status']] = $row['count'];
+        }
+
+        return $statuses;
+    }
 }
