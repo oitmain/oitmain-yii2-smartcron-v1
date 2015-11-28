@@ -20,7 +20,7 @@ class SimpleCron extends BaseCron
         return 'simple_cron_' . $cronId;
     }
 
-    public function eventReset()
+    public function eventReset($cronId, $cronDetailId)
     {
         $this->_i = 20;
     }

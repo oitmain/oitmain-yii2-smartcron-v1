@@ -4,7 +4,7 @@ CREATE TABLE `cron` (
  `updated_at` datetime NOT NULL,
  `name` varchar(100) NOT NULL,
  `scheduled_at` datetime NOT NULL,
- `expression` varchar(10) NOT NULL,
+ `expression` varchar(30) NOT NULL,
  `start_mt` decimal(13,3) DEFAULT NULL,
  `end_mt` decimal(13,3) DEFAULT NULL,
  `heartbeat_mt` decimal(13,3) DEFAULT NULL,

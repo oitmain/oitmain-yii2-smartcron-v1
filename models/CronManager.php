@@ -45,6 +45,9 @@ class CronManager
 
         $runningCronNames = $this->getRunningCronNames();
 
+        // Run paused cron if there are no crons on schedule
+        $pausedCrons = [];
+
         foreach ($this->_crons as &$cron) {
 
             // Run cron if it's not running
@@ -57,6 +60,18 @@ class CronManager
                         return $cronResult;
                     }
                 }
+                // Paused crons are second priority
+                if ($cron->getPausedCron()) {
+                    $pausedCrons[] = &$cron;
+                }
+            }
+        }
+
+        foreach ($pausedCrons as &$cron) {
+            if (CronMutex::acquireCron($cron)) {
+                $cronResult = $cron->run(false);
+                CronMutex::releaseCron($cron);
+                return $cronResult;
             }
         }
 

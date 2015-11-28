@@ -276,6 +276,14 @@ class Cron extends BaseCron
             ->asArray()
             ->all();
 
+
+        var_dump( static::find()
+            ->select('scheduled_at')
+            ->andWhere(['name' => $cron->getName()])
+            ->andWhere(['in', 'scheduled_at', $searchMysqlDates])->createCommand()->getRawSql());
+
+var_dump($scheduledCronMysqlDateRows);
+
         foreach ($scheduledCronMysqlDateRows as $scheduledCronMysqlDateRow) {
             $scheduledCronMysqlDate = $scheduledCronMysqlDateRow['scheduled_at'];
             CronMutex::releaseCronDate($cron->getName(), $lockedDTs[$scheduledCronMysqlDate]);
@@ -357,9 +365,9 @@ class Cron extends BaseCron
         return false;
     }
 
-    public function doStart()
+    public function doStart($mt = false)
     {
-        $this->start_mt = microtime(true);
+        $this->start_mt = $mt ? $mt : microtime(true);
         $this->status = Cron::STATUS_RUNNING;
         $this->save(false);
     }
