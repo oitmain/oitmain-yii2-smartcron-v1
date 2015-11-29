@@ -276,14 +276,6 @@ class Cron extends BaseCron
             ->asArray()
             ->all();
 
-
-        var_dump( static::find()
-            ->select('scheduled_at')
-            ->andWhere(['name' => $cron->getName()])
-            ->andWhere(['in', 'scheduled_at', $searchMysqlDates])->createCommand()->getRawSql());
-
-var_dump($scheduledCronMysqlDateRows);
-
         foreach ($scheduledCronMysqlDateRows as $scheduledCronMysqlDateRow) {
             $scheduledCronMysqlDate = $scheduledCronMysqlDateRow['scheduled_at'];
             CronMutex::releaseCronDate($cron->getName(), $lockedDTs[$scheduledCronMysqlDate]);
