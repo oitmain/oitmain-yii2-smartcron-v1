@@ -275,16 +275,16 @@ abstract class BaseCron
                 $cronResult->cronDetailId = $dbCronDetail->id;
 
                 if ($dbCron->doResume()) {
-                    $this->eventResume($dbCron->id, $dbCronDetail->id);
+                    $this->eventResume($dbCron, $dbCronDetail);
                 } else {
                     $dbCron->doStart($startMT);
-                    $this->eventReset($dbCron->id, $dbCronDetail->id);
+                    $this->eventReset($dbCron, $dbCronDetail);
                 }
 
                 try {
                     $loopStartedMT = microtime(true);
                     // file_put_contents('cron2.log', 'Loop started at ' . $loopStartedMT . "\n", FILE_APPEND);
-                    while ($this->eventLoop($dbCron->id, $dbCronDetail->id)) {
+                    while ($this->eventLoop($dbCron, $dbCronDetail)) {
 
                         // file_put_contents('cron2.log', 'Looping' . "\n", FILE_APPEND);
                         $currentTimeMT = microtime(true);
@@ -296,7 +296,7 @@ abstract class BaseCron
 
                             if ($currentTimeMT > $timeoutT) {
                                 // file_put_contents('cron2.log', "Timed out\n", FILE_APPEND);
-                                $this->cleanupTimedOut($dbCron->id, $dbCronDetail->id);
+                                $this->cleanupTimedOut($dbCron, $dbCronDetail);
                                 $dbCronDetail->doTimeout();
                                 $dbCron->doTimeout();
                                 break;
@@ -304,7 +304,7 @@ abstract class BaseCron
 
                             if (($currentTimeMT - $startMT) > ($this->_pauseAfter)) {
                                 // file_put_contents('cron2.log', "Paused\n", FILE_APPEND);
-                                $this->eventPaused($dbCron->id, $dbCronDetail->id);
+                                $this->eventPaused($dbCron, $dbCronDetail);
                                 $dbCronDetail->doFinish();
                                 $dbCron->doPause();
                                 break;
@@ -315,12 +315,12 @@ abstract class BaseCron
 
                     if ($dbCron->status == Cron::STATUS_RUNNING) {
                         // file_put_contents('cron2.log', "Finished\n", FILE_APPEND);
-                        $this->eventFinished($dbCron->id, $dbCronDetail->id);
+                        $this->eventFinished($dbCron, $dbCronDetail);
                         $dbCronDetail->doFinish();
                         $dbCron->doFinish();
                     }
                 } catch (Exception $e) {
-                    $this->cleanupFailed($dbCron->id, $dbCronDetail->id);
+                    $this->cleanupFailed($dbCron, $dbCronDetail);
                     $dbCronDetail->doError();
                     $dbCron->doError();
                     $this->releaseDbCron($dbCron);
@@ -336,29 +336,62 @@ abstract class BaseCron
     }
 
 
-    /*
+    /**
      * Run initialize the job before loops
+     * @param Cron $cron
+     * @param CronDetail $cronDetail
      */
-    abstract public function eventReset($cronId, $cronDetailId);
+    abstract public function eventReset($cron, $cronDetail);
 
-    /*
+    /**
      * Repeat until timeout or complete
+     * @param Cron $cron
+     * @param CronDetail $cronDetail
      * @return boolean Return true to continue loop and false to finish
      */
-    abstract public function eventLoop($cronId, $cronDetailId);
+    abstract public function eventLoop($cron, $cronDetail);
 
-    abstract public function eventFinished($cronId, $cronDetailId);
+    /**
+     * @param Cron $cron
+     * @param CronDetail $cronDetail
+     * @return mixed
+     */
+    abstract public function eventFinished($cron, $cronDetail);
 
-    abstract public function eventPaused($cronId, $cronDetailId);
+    /**
+     * @param Cron $cron
+     * @param CronDetail $cronDetail
+     * @return mixed
+     */
+    abstract public function eventPaused($cron, $cronDetail);
 
-    abstract public function eventResume($cronId, $cronDetailId);
+    /**
+     * @param Cron $cron
+     * @param CronDetail $cronDetail
+     * @return mixed
+     */
+    abstract public function eventResume($cron, $cronDetail);
 
-    abstract public function cleanupFailed($cronId, $cronDetailId);
+    /**
+     * @param Cron $cron
+     * @param CronDetail $cronDetail
+     * @return mixed
+     */
+    abstract public function cleanupFailed($cron, $cronDetail);
 
-    abstract public function cleanupTimedOut($cronId, $cronDetailId);
+    /**
+     * @param Cron $cron
+     * @param CronDetail $cronDetail
+     * @return mixed
+     */
+    abstract public function cleanupTimedOut($cron, $cronDetail);
 
-    abstract public function cleanupDied($cronId, $cronDetailId);
-
+    /**
+     * @param Cron $cron
+     * @param CronDetail $cronDetail
+     * @return mixed
+     */
+    abstract public function cleanupDied($cron, $cronDetail);
 
     public function databaseMarkMissedSchedule()
     {
