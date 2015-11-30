@@ -4,6 +4,7 @@ namespace oitmain\yii2\smartcron\v1\models;
 
 use oitmain\yii2\smartcron\v1\models\base\BaseCron;
 use oitmain\yii2\smartcron\v1\models\db\Cron;
+use Yii;
 
 /**
  * Class CronManager
@@ -30,14 +31,16 @@ class CronManager
     /**
      * @return bool|CronResult
      */
-    public function run()
+    public function run($maintenance = true)
     {
         // Clean up database
-        foreach ($this->_crons as &$cron) {
-            $cron
-                ->databaseMarkMissedSchedule()
-                ->databaseMarkDeadSchedule()
-                ->cleanupDirtyCrons();
+        if ($maintenance) {
+            foreach ($this->_crons as &$cron) {
+                $cron
+                    ->databaseMarkMissedSchedule()
+                    ->databaseMarkDeadSchedule()
+                    ->cleanupDirtyCrons();
+            }
         }
 
         // Sort and prioritize the cron
@@ -50,20 +53,38 @@ class CronManager
 
         foreach ($this->_crons as &$cron) {
 
+            Yii::trace('Trying cron ' . $cron->getName(), __METHOD__);
+
             // Run cron if it's not running
             if (!isset($runningCronNames[$cron->getName()])) {
-                $cron->databaseCreateSchedule();
+                if ($maintenance) {
+                    $cron->databaseCreateSchedule();
+                }
                 if ($cron->getScheduleExpression()->isDue()) {
+                    Yii::trace('Cron is due', __METHOD__);
                     if (CronMutex::acquireCron($cron)) {
                         $cronResult = $cron->run(false);
                         CronMutex::releaseCron($cron);
                         return $cronResult;
                     }
+                    else
+                    {
+                        Yii::trace('Failed acquiring cron', __METHOD__);
+                    }
+                }
+                else
+                {
+                    Yii::trace('Cron is NOT due', __METHOD__);
                 }
                 // Paused crons are second priority
                 if ($cron->getPausedCron()) {
+                    Yii::trace('Cron is paused, priority lowered', __METHOD__);
                     $pausedCrons[] = &$cron;
                 }
+            }
+            else
+            {
+                Yii::trace('Cron is running', __METHOD__);
             }
         }
 
