@@ -64,7 +64,17 @@ abstract class BaseCron
 
     protected $_loopUpdateThreshold = 1; // seconds
 
-    abstract public function getSchedule();
+    protected $_schedule = '0 1 * * *';
+
+    public function getSchedule()
+    {
+        return $this->_schedule;
+    }
+
+    public function setSchedule($schedule)
+    {
+        $this->_schedule = $schedule;
+    }
 
     public function getName()
     {

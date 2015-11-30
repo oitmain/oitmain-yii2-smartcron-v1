@@ -10,10 +10,7 @@ class SimpleCron extends BaseCron
 
     protected $_i = 10;
 
-    public function getSchedule()
-    {
-        return '0/5 * * * *';
-    }
+    protected $_schedule = '0/5 * * * *';
 
     protected function getCacheKey($cronId, $cronDetailId)
     {
