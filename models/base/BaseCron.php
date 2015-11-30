@@ -10,6 +10,7 @@ use oitmain\yii2\smartcron\v1\models\CronMutex;
 use oitmain\yii2\smartcron\v1\models\CronResult;
 use oitmain\yii2\smartcron\v1\models\db\Cron;
 use oitmain\yii2\smartcron\v1\models\db\CronDetail;
+use Yii;
 use yii\helpers\Inflector;
 
 abstract class BaseCron
@@ -182,6 +183,7 @@ abstract class BaseCron
          */
 
         if ($this->getRunningCrons()) {
+            Yii::trace('Cron is already running', __METHOD__);
             return false;
         }
 
@@ -205,6 +207,9 @@ abstract class BaseCron
         $pausedDbCron = $this->getPausedCron();
         $nextScheduledDbCron = $this->getNextScheduledDbCron();
 
+        if ($pausedDbCron) {
+            Yii::trace('Found a paused cron', __METHOD__);
+        }
 
         /*
         if ($pausedDbCron) {
@@ -224,84 +229,96 @@ abstract class BaseCron
 
 
         $dbCron = $pausedDbCron ? $pausedDbCron : null;
+
         if (!$pausedDbCron && $this->isDbCronDue($nextScheduledDbCron)) {
             $dbCron = $nextScheduledDbCron;
         }
 
-        if ($dbCron && $this->acquireDbCron($dbCron)) {
-
-            // file_put_contents('cron2.log', 'Current timestamp ' . microtime(true) . "\n", FILE_APPEND);
-
-            $timeoutT = $this->getScheduleExpression()
-                ->getNextRunDate(new DateTime($dbCron->scheduled_at . ' UTC'))
-                ->getTimestamp();
-
-            // file_put_contents('cron2.log', 'Next cron due at ' . $timeoutT . "\n", FILE_APPEND);
-
-            $timeoutT -= $this->_timeoutBuffer;
-
-            // file_put_contents('cron2.log', 'Timeout expected at ' . $timeoutT . "\n", FILE_APPEND);
-
-            $startMT = microtime(true);
-
-            $dbCronDetail = new CronDetail();
-            $dbCronDetail->cron_id = $dbCron->id;
-            $dbCronDetail->doStart($startMT);
-
-            if ($dbCron->doResume()) {
-                $this->eventResume($dbCron->id, $dbCronDetail->id);
+        if (!$dbCron) {
+            Yii::trace('No cron to run', __METHOD__);
+        } else {
+            if (!$this->acquireDbCron($dbCron)) {
+                Yii::trace('Failed to acquire scheduled cron', __METHOD__);
             } else {
-                $dbCron->doStart($startMT);
-                $this->eventReset($dbCron->id, $dbCronDetail->id);
-            }
 
-            try {
-                $loopStartedMT = microtime(true);
-                // file_put_contents('cron2.log', 'Loop started at ' . $loopStartedMT . "\n", FILE_APPEND);
-                while ($this->eventLoop($dbCron->id, $dbCronDetail->id)) {
+                Yii::trace($dbCron->toArray(), __METHOD__);
 
-                    // file_put_contents('cron2.log', 'Looping' . "\n", FILE_APPEND);
-                    $currentTimeMT = microtime(true);
+                // file_put_contents('cron2.log', 'Current timestamp ' . microtime(true) . "\n", FILE_APPEND);
 
-                    if (($loopStartedMT + $this->_loopUpdateThreshold) < $currentTimeMT) {
-                        // file_put_contents('cron2.log', 'Heartbeat at ' . $currentTimeMT . "\n", FILE_APPEND);
+                $timeoutT = $this->getScheduleExpression()
+                    ->getNextRunDate(new DateTime($dbCron->scheduled_at . ' UTC'))
+                    ->getTimestamp();
 
-                        $dbCron->doHeartbeat();
+                // file_put_contents('cron2.log', 'Next cron due at ' . $timeoutT . "\n", FILE_APPEND);
 
-                        if ($currentTimeMT > $timeoutT) {
-                            // file_put_contents('cron2.log', "Timed out\n", FILE_APPEND);
-                            $this->cleanupTimedOut($dbCron->id, $dbCronDetail->id);
-                            $dbCronDetail->doTimeout();
-                            $dbCron->doTimeout();
-                            break;
+                $timeoutT -= $this->_timeoutBuffer;
+
+                // file_put_contents('cron2.log', 'Timeout expected at ' . $timeoutT . "\n", FILE_APPEND);
+
+                $startMT = microtime(true);
+
+                $dbCronDetail = new CronDetail();
+                $dbCronDetail->cron_id = $dbCron->id;
+                $dbCronDetail->doStart($startMT);
+
+                $cronResult->cronId = $dbCron->id;
+                $cronResult->cronDetailId = $dbCronDetail->id;
+
+                if ($dbCron->doResume()) {
+                    $this->eventResume($dbCron->id, $dbCronDetail->id);
+                } else {
+                    $dbCron->doStart($startMT);
+                    $this->eventReset($dbCron->id, $dbCronDetail->id);
+                }
+
+                try {
+                    $loopStartedMT = microtime(true);
+                    // file_put_contents('cron2.log', 'Loop started at ' . $loopStartedMT . "\n", FILE_APPEND);
+                    while ($this->eventLoop($dbCron->id, $dbCronDetail->id)) {
+
+                        // file_put_contents('cron2.log', 'Looping' . "\n", FILE_APPEND);
+                        $currentTimeMT = microtime(true);
+
+                        if (($loopStartedMT + $this->_loopUpdateThreshold) < $currentTimeMT) {
+                            // file_put_contents('cron2.log', 'Heartbeat at ' . $currentTimeMT . "\n", FILE_APPEND);
+
+                            $dbCron->doHeartbeat();
+
+                            if ($currentTimeMT > $timeoutT) {
+                                // file_put_contents('cron2.log', "Timed out\n", FILE_APPEND);
+                                $this->cleanupTimedOut($dbCron->id, $dbCronDetail->id);
+                                $dbCronDetail->doTimeout();
+                                $dbCron->doTimeout();
+                                break;
+                            }
+
+                            if (($currentTimeMT - $startMT) > ($this->_pauseAfter)) {
+                                // file_put_contents('cron2.log', "Paused\n", FILE_APPEND);
+                                $this->eventPaused($dbCron->id, $dbCronDetail->id);
+                                $dbCronDetail->doFinish();
+                                $dbCron->doPause();
+                                break;
+                            }
+                            $loopStartedMT = $currentTimeMT;
                         }
-
-                        if (($currentTimeMT - $startMT) > ($this->_pauseAfter)) {
-                            // file_put_contents('cron2.log', "Paused\n", FILE_APPEND);
-                            $this->eventPaused($dbCron->id, $dbCronDetail->id);
-                            $dbCronDetail->doFinish();
-                            $dbCron->doPause();
-                            break;
-                        }
-                        $loopStartedMT = $currentTimeMT;
                     }
+
+                    if ($dbCron->status == Cron::STATUS_RUNNING) {
+                        // file_put_contents('cron2.log', "Finished\n", FILE_APPEND);
+                        $this->eventFinished($dbCron->id, $dbCronDetail->id);
+                        $dbCronDetail->doFinish();
+                        $dbCron->doFinish();
+                    }
+                } catch (Exception $e) {
+                    $this->cleanupFailed($dbCron->id, $dbCronDetail->id);
+                    $dbCronDetail->doError();
+                    $dbCron->doError();
+                    $this->releaseDbCron($dbCron);
+                    throw $e;
                 }
 
-                if ($dbCron->status == Cron::STATUS_RUNNING) {
-                    // file_put_contents('cron2.log', "Finished\n", FILE_APPEND);
-                    $this->eventFinished($dbCron->id, $dbCronDetail->id);
-                    $dbCronDetail->doFinish();
-                    $dbCron->doFinish();
-                }
-            } catch (Exception $e) {
-                $this->cleanupFailed($dbCron->id, $dbCronDetail->id);
-                $dbCronDetail->doError();
-                $dbCron->doError();
                 $this->releaseDbCron($dbCron);
-                throw $e;
             }
-
-            $this->releaseDbCron($dbCron);
         }
 
 
