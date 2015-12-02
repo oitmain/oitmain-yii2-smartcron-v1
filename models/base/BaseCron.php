@@ -293,14 +293,18 @@ abstract class BaseCron
                         if (($loopStartedMT + $this->_loopUpdateThreshold) < $currentTimeMT) {
                             // file_put_contents('cron2.log', 'Heartbeat at ' . $currentTimeMT . "\n", FILE_APPEND);
 
+                            $memoryUsed = OitHelper::memoryUsedPercentage();
+                            Yii::trace("Cron memory used " . round($memoryUsed, 2));
+
                             // Prevent memory overflow by force pausing
-                            if (Yii::$app->hasModule('debug')) {
-                                $memoryUsed = OitHelper::memoryUsedPercentage();
-                                Yii::trace("Cron memory used " . round($memoryUsed, 2));
-                                if ($memoryUsed > 0.15) {
-                                    Yii::trace("Memory used over 15%, force pausing");
-                                    $this->_pauseAfter = 0;
-                                }
+                            if ($memoryUsed > 0.15 && Yii::$app->hasModule('debug')) {
+                                Yii::trace("Debug mode and memory used over 15%, force pausing");
+                                $this->_pauseAfter = 0;
+                            }
+
+                            if ($memoryUsed > 0.75) {
+                                Yii::trace("Memory used over 75%, force pausing");
+                                $this->_pauseAfter = 0;
                             }
 
                             $dbCron->doHeartbeat();
