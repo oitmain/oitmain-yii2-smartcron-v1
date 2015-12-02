@@ -45,7 +45,7 @@ class BaseCron extends \yii\db\ActiveRecord
             [['status'], 'string'],
             [['cleanup'], 'integer'],
             [['name'], 'string', 'max' => 100],
-            [['expression'], 'string', 'max' => 10],
+            [['expression'], 'string', 'max' => 30],
             [['name', 'scheduled_at'], 'unique', 'targetAttribute' => ['name', 'scheduled_at'], 'message' => 'The combination of Name and Scheduled At has already been taken.']
         ];
     }

@@ -180,7 +180,7 @@ abstract class BaseCron
     }
 
 
-    public function run($createSchedule = true)
+    public function run($createSchedule = true, $dbCron = null)
     {
         if ($createSchedule) $this->databaseCreateSchedule();
 
@@ -212,37 +212,39 @@ abstract class BaseCron
          */
 
 
-        //$dbCron -> lock seperately because it can be retrieved by pause and new
-        // $dbCron = $this->acquireCron();
+        if ($dbCron == null) {
+            //$dbCron -> lock seperately because it can be retrieved by pause and new
+            // $dbCron = $this->acquireCron();
 
-        $pausedDbCron = $this->getPausedCron();
-        $nextScheduledDbCron = $this->getNextScheduledDbCron();
+            $pausedDbCron = $this->getPausedCron();
+            $nextScheduledDbCron = $this->getNextScheduledDbCron();
 
-        if ($pausedDbCron) {
-            Yii::trace('Found a paused cron', __METHOD__);
-        }
+            if ($pausedDbCron) {
+                Yii::trace('Found a paused cron', __METHOD__);
+            }
 
-        /*
-        if ($pausedDbCron) {
-            file_put_contents('cron2.log', '== Paused Cron ==', FILE_APPEND);
-            file_put_contents('cron2.log', print_r($pausedDbCron, true), FILE_APPEND);
-        } else {
-            if ($nextScheduledDbCron) {
-                file_put_contents('cron2.log', '== Next Scheduled Cron ==', FILE_APPEND);
-                file_put_contents('cron2.log', print_r($nextScheduledDbCron, true), FILE_APPEND);
+            /*
+            if ($pausedDbCron) {
+                file_put_contents('cron2.log', '== Paused Cron ==', FILE_APPEND);
+                file_put_contents('cron2.log', print_r($pausedDbCron, true), FILE_APPEND);
+            } else {
+                if ($nextScheduledDbCron) {
+                    file_put_contents('cron2.log', '== Next Scheduled Cron ==', FILE_APPEND);
+                    file_put_contents('cron2.log', print_r($nextScheduledDbCron, true), FILE_APPEND);
 
-                if ($this->isDbCronDue($nextScheduledDbCron)) {
-                    file_put_contents('cron2.log', 'Cron is due', FILE_APPEND);
+                    if ($this->isDbCronDue($nextScheduledDbCron)) {
+                        file_put_contents('cron2.log', 'Cron is due', FILE_APPEND);
+                    }
                 }
             }
-        }
-        */
+            */
 
 
-        $dbCron = $pausedDbCron ? $pausedDbCron : null;
+            $dbCron = $pausedDbCron ? $pausedDbCron : null;
 
-        if (!$pausedDbCron && $this->isDbCronDue($nextScheduledDbCron)) {
-            $dbCron = $nextScheduledDbCron;
+            if (!$pausedDbCron && $this->isDbCronDue($nextScheduledDbCron)) {
+                $dbCron = $nextScheduledDbCron;
+            }
         }
 
         if (!$dbCron) {
@@ -346,6 +348,7 @@ abstract class BaseCron
             }
         }
 
+        Yii::trace("Memory after cron " . round(OitHelper::memoryUsedPercentage(), 2));
 
         return $cronResult;
     }

@@ -5,6 +5,7 @@ namespace oitmain\yii2\smartcron\v1\models;
 use oitmain\yii2\smartcron\v1\models\base\BaseCron;
 use oitmain\yii2\smartcron\v1\models\db\Cron;
 use Yii;
+use yii\base\Exception;
 
 /**
  * Class CronManager
@@ -66,14 +67,10 @@ class CronManager
                         $cronResult = $cron->run(false);
                         CronMutex::releaseCron($cron);
                         return $cronResult;
-                    }
-                    else
-                    {
+                    } else {
                         Yii::trace('Failed acquiring cron', __METHOD__);
                     }
-                }
-                else
-                {
+                } else {
                     Yii::trace('Cron is NOT due', __METHOD__);
                 }
                 // Paused crons are second priority
@@ -81,9 +78,7 @@ class CronManager
                     Yii::trace('Cron is paused, priority lowered', __METHOD__);
                     $pausedCrons[] = &$cron;
                 }
-            }
-            else
-            {
+            } else {
                 Yii::trace('Cron is running', __METHOD__);
             }
         }
@@ -97,6 +92,46 @@ class CronManager
         }
 
         return false;
+    }
+
+
+    /**
+     * @return bool|CronResult
+     */
+    public function runOne($cronId, $reschedule = true)
+    {
+        /* @var Cron $dbCron */
+        $dbCron = Cron::findOne(['id' => $cronId]);
+
+        foreach ($this->_crons as &$cron) {
+            if ($cron->getName() == $dbCron->name) {
+                if (CronMutex::acquireCron($cron)) {
+
+                    if ($cron->getPausedCron()) {
+                        throw new Exception('This cron is paused');
+                    }
+
+                    if ($dbCron->status != 'SCHEDULED') {
+                        throw new Exception('Cron status is no scheduled ' . $dbCron->status);
+                    }
+
+                    if ($reschedule) {
+                        $dbCron->scheduled_at = gmdate('Y-m-d H:i:00');
+                        $dbCron->save();
+                    }
+
+                    $cronResult = $cron->run(true, $dbCron);
+
+                    CronMutex::releaseCron($cron);
+                    return $cronResult;
+                } else {
+                    Yii::trace('Failed acquiring cron', __METHOD__);
+                    throw new Exception('Failed acquiring cron');
+                }
+            }
+        }
+
+        throw new Exception('Could not find cron');
     }
 
 

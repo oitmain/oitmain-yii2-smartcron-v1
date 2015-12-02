@@ -23,6 +23,20 @@ class Cron extends BaseCron
     const STATUS_PAUSED = 'PAUSED';
     const STATUS_RUNNING = 'RUNNING';
 
+    public static function findAllNextScheduledCrons()
+    {
+
+        $minScheduledCrons = Cron::find()
+            ->select(['name', 'MIN(scheduled_at) AS scheduled_at'])
+            ->andWhere(['status' => Cron::STATUS_SCHEDULED])
+            ->groupBy(['name']);
+
+        $nextScheduledCrons = Cron::find();
+        $nextScheduledCrons->innerJoin(['cron_scheduled' => $minScheduledCrons], 'cron.name = cron_scheduled.name AND cron.scheduled_at = cron_scheduled.scheduled_at');
+
+        return $nextScheduledCrons;
+    }
+
     public function beforeValidate()
     {
         if ($this->isNewRecord) {
