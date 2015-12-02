@@ -6,6 +6,7 @@ use Cron\CronExpression;
 use DateInterval;
 use DateTime;
 use Exception;
+use oitmain\yii2\core\v1\models\base\OitHelper;
 use oitmain\yii2\smartcron\v1\models\CronMutex;
 use oitmain\yii2\smartcron\v1\models\CronResult;
 use oitmain\yii2\smartcron\v1\models\db\Cron;
@@ -291,6 +292,16 @@ abstract class BaseCron
 
                         if (($loopStartedMT + $this->_loopUpdateThreshold) < $currentTimeMT) {
                             // file_put_contents('cron2.log', 'Heartbeat at ' . $currentTimeMT . "\n", FILE_APPEND);
+
+                            // Prevent memory overflow by force pausing
+                            if (Yii::$app->hasModule('debug')) {
+                                $memoryUsed = OitHelper::memoryUsedPercentage();
+                                Yii::trace("Cron memory used " . round($memoryUsed, 2));
+                                if ($memoryUsed > 0.15) {
+                                    Yii::trace("Memory used over 15%, force pausing");
+                                    $this->_pauseAfter = 0;
+                                }
+                            }
 
                             $dbCron->doHeartbeat();
 
