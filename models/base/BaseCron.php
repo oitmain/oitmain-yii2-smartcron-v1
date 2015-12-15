@@ -67,6 +67,8 @@ abstract class BaseCron
 
     protected $_schedule = '0 1 * * *';
 
+    protected $_noTimeout = false;
+
     public function getSchedule()
     {
         return $this->_schedule;
@@ -163,15 +165,15 @@ abstract class BaseCron
         foreach ($dirtyCrons as $dirtyCron) {
             switch ($dirtyCron->status) {
                 case Cron::STATUS_TIMEOUT:
-                    $this->cleanupTimedOut($dirtyCron->id, 0);
+                    $this->cleanupTimedOut($dirtyCron, null);
                     $dirtyCron->doCleanup();
                     break;
                 case Cron::STATUS_ERROR:
-                    $this->cleanupFailed($dirtyCron->id, 0);
+                    $this->cleanupFailed($dirtyCron, null);
                     $dirtyCron->doCleanup();
                     break;
                 case Cron::STATUS_DEAD:
-                    $this->cleanupDied($dirtyCron->id, 0);
+                    $this->cleanupDied($dirtyCron, null);
                     $dirtyCron->doCleanup();
                     break;
             }
@@ -311,7 +313,7 @@ abstract class BaseCron
 
                             $dbCron->doHeartbeat();
 
-                            if ($currentTimeMT > $timeoutT) {
+                            if (!$this->_noTimeout && $currentTimeMT > $timeoutT) {
                                 // file_put_contents('cron2.log', "Timed out\n", FILE_APPEND);
                                 $this->cleanupTimedOut($dbCron, $dbCronDetail);
                                 $dbCronDetail->doTimeout();
@@ -446,6 +448,8 @@ abstract class BaseCron
         }
 
         Cron::insertAllSchedule($this, $scheduleDTs);
+
+        return $this;
     }
 
 }

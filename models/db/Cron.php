@@ -108,18 +108,23 @@ class Cron extends BaseCron
      * @param bool|\oitmain\yii2\smartcron\v1\models\base\BaseCron $cron
      * @return integer the number of rows updated
      */
-    static function updateAllMissedCrons(&$cron)
+    static function updateAllMissedCrons(&$cron = null)
     {
+        $criteria = ['and',
+            ['<', 'scheduled_at', gmdate('Y-m-d H:i')],
+            ['status' => static::STATUS_SCHEDULED],
+        ];
+
+        if ($cron) {
+            $criteria[] = ['name' => $cron->getName()];
+        }
+
         return static::updateAll(
             [
                 'status' => static::STATUS_MISSED,
                 'cleanup' => 0,
             ],
-            ['and',
-                ['<', 'scheduled_at', gmdate('Y-m-d H:i')],
-                ['status' => static::STATUS_SCHEDULED],
-                ['name' => $cron->getName()],
-            ]
+            $criteria
         );
     }
 
@@ -129,6 +134,20 @@ class Cron extends BaseCron
      */
     static function updateAllDeadCrons(&$cron)
     {
+        $criteria = ['and',
+            ['or',
+                // Cron failed to initialize, so heartbeat is null
+                ['and',
+                    ['<', 'start_mt', microtime(true) - $cron->getHeartbeatExpires()],
+                    ['heartbeat_mt' => null],
+                ],
+                // Cron heartbeat stopped
+                ['<', 'heartbeat_mt', microtime(true) - $cron->getHeartbeatExpires()],
+            ],
+            ['status' => static::STATUS_RUNNING],
+            ['name' => $cron->getName()],
+        ];
+
         $updateCount = 0;
 
         $updateCount += static::updateAll(
@@ -137,24 +156,20 @@ class Cron extends BaseCron
                 'cleanup' => 1,
             ],
             ['and',
-                ['<', 'start_mt', microtime(true) - $cron->getHeartbeatExpires()],
-                ['heartbeat_mt' => null],
+                ['or',
+                    // Cron failed to initialize, so heartbeat is null
+                    ['and',
+                        ['<', 'start_mt', microtime(true) - $cron->getHeartbeatExpires()],
+                        ['heartbeat_mt' => null],
+                    ],
+                    // Cron heartbeat stopped
+                    ['<', 'heartbeat_mt', microtime(true) - $cron->getHeartbeatExpires()],
+                ],
                 ['name' => $cron->getName()],
                 ['status' => static::STATUS_RUNNING],
             ]
         );
 
-        $updateCount += static::updateAll(
-            [
-                'status' => static::STATUS_DEAD,
-                'cleanup' => 1,
-            ],
-            ['and',
-                ['<', 'heartbeat_mt', microtime(true) - $cron->getHeartbeatExpires()],
-                ['name' => $cron->getName()],
-                ['status' => static::STATUS_RUNNING],
-            ]
-        );
 
         return $updateCount;
     }
@@ -246,6 +261,29 @@ class Cron extends BaseCron
 
         return $query;
     }
+
+
+    /**
+     * @param bool|\oitmain\yii2\smartcron\v1\models\base\BaseCron $cron
+     * @return \yii\db\ActiveQuery
+     */
+    static function getAllDue($includePaused = true)
+    {
+        $query = static::find()
+            ->where(['and',
+                ['status'=>static::STATUS_SCHEDULED],
+                ['>=', 'scheduled_at',gmdate('Y-m-d H:i:00')],
+                ['<=', 'scheduled_at',gmdate('Y-m-d H:i:59')],
+            ]);
+
+        if($includePaused)
+        {
+            $query->orWhere(['status'=>static::STATUS_PAUSED]);
+        }
+
+        return $query;
+    }
+
 
 
     /**

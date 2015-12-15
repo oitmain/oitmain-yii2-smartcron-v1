@@ -20,6 +20,11 @@ class CronManager
     protected $_crons = array();
 
     /**
+     * @var Cron[]
+     */
+    protected $_dueDbCrons = null;
+
+    /**
      * @param BaseCron $cron
      * @return $this
      */
@@ -29,67 +34,62 @@ class CronManager
         return $this;
     }
 
+    public function databaseMarkMissedSchedule()
+    {
+        Cron::updateAllMissedCrons();
+    }
+
     /**
      * @return bool|CronResult
      */
-    public function run($maintenance = true)
+    public function run($maintenance = true, $reloadDueCron = false)
     {
+
+        $this->getAllDue($reloadDueCron);
+
+        // Sort and prioritize the cron
+        $this->sortDbCrons($this->_dueDbCrons);
+
+        $runningCronNames = $this->getRunningCronNames();
+
         // Clean up database
         if ($maintenance) {
             foreach ($this->_crons as &$cron) {
                 $cron
-                    ->databaseMarkMissedSchedule()
+                    ->databaseCreateSchedule()
                     ->databaseMarkDeadSchedule()
                     ->cleanupDirtyCrons();
             }
         }
 
-        // Sort and prioritize the cron
-        $this->sortCrons($this->_crons);
-
-        $runningCronNames = $this->getRunningCronNames();
-
-        // Run paused cron if there are no crons on schedule
-        $pausedCrons = [];
-
-        foreach ($this->_crons as &$cron) {
-
-            Yii::trace('Trying cron ' . $cron->getName(), __METHOD__);
-
-            // Run cron if it's not running
-            if (!isset($runningCronNames[$cron->getName()])) {
-                if ($maintenance) {
-                    $cron->databaseCreateSchedule();
-                }
-                if ($cron->getScheduleExpression()->isDue()) {
-                    Yii::trace('Cron is due', __METHOD__);
+        foreach ($this->_dueDbCrons as $key => $dueDbCron) {
+            Yii::trace('Found due cron ' . $dueDbCron->name, __METHOD__);
+            $found = false;
+            foreach ($this->_crons as &$cron) {
+                if ($cron->getName() == $dueDbCron->name) {
+                    $found = true;
                     if (CronMutex::acquireCron($cron)) {
-                        $cronResult = $cron->run(false);
+                        $cronResult = $cron->run(false, $dueDbCron);
                         CronMutex::releaseCron($cron);
+                        unset($this->_dueDbCrons[$key]);
                         return $cronResult;
                     } else {
                         Yii::trace('Failed acquiring cron', __METHOD__);
                     }
-                } else {
-                    Yii::trace('Cron is NOT due', __METHOD__);
                 }
-                // Paused crons are second priority
-                if ($cron->getPausedCron()) {
-                    Yii::trace('Cron is paused, priority lowered', __METHOD__);
-                    $pausedCrons[] = &$cron;
-                }
-            } else {
-                Yii::trace('Cron is running', __METHOD__);
+            }
+            if (!$found) {
+                Yii::trace('Cron is not configured', __METHOD__);
+                Cron::deleteAll(
+                    ['and',
+                        ['status' => Cron::STATUS_SCHEDULED],
+                        ['>=', 'scheduled_at', $dueDbCron->scheduled_at],
+                        ['name' => $dueDbCron->name],
+                    ]
+                );
             }
         }
 
-        foreach ($pausedCrons as &$cron) {
-            if (CronMutex::acquireCron($cron)) {
-                $cronResult = $cron->run(false);
-                CronMutex::releaseCron($cron);
-                return $cronResult;
-            }
-        }
 
         return false;
     }
@@ -151,20 +151,18 @@ class CronManager
         return $runningDbCronNames;
     }
 
-    protected function sortCrons(&$crons)
+    protected function sortDbCrons(&$dbCrons)
     {
-
-        /* @var Cron[] $pausedDbCrons */
-        $pausedDbCrons = Cron::getAllPausedCrons()->all();
-
         $cronSorter = new FifoCronSorter();
+        $cronSorter->sortCrons($dbCrons);
+    }
 
-        foreach ($pausedDbCrons as &$pausedDbCron) {
-            $cronSorter->addPausedDbCron($pausedDbCron);
+    protected function getAllDue($reload = false)
+    {
+        if (!$this->_dueDbCrons || $reload) {
+            $this->_dueDbCrons = Cron::getAllDue(true)->all();
         }
-
-        $cronSorter->sortCrons($this->_crons);
-
+        return $this->_dueDbCrons;
     }
 
 }

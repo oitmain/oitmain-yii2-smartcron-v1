@@ -3,7 +3,6 @@
 namespace oitmain\yii2\smartcron\v1\models;
 
 use DateTime;
-use oitmain\yii2\smartcron\v1\models\base\BaseCron;
 use oitmain\yii2\smartcron\v1\models\base\BaseCronSorter;
 use oitmain\yii2\smartcron\v1\models\db\Cron;
 
@@ -15,24 +14,8 @@ class FifoCronSorter extends BaseCronSorter
 {
 
     /**
-     * @var Cron[]
-     */
-    protected $_pausedDbCrons;
-
-    /**
-     * @param Cron $dbCron
-     * @return $this
-     */
-    public function addPausedDbCron(&$dbCron)
-    {
-        $this->_pausedDbCrons[$dbCron->name] = $dbCron;
-        return $this;
-    }
-
-
-    /**
-     * @param BaseCron $a
-     * @param BaseCron $b
+     * @param Cron $a
+     * @param Cron $b
      * @return integer An integer less than, equal to, or greater than zero if the first argument is considered to be
      * respectively less than, equal to, or greater than the second.
      */
@@ -43,20 +26,23 @@ class FifoCronSorter extends BaseCronSorter
          * 1. Paused and scheduled time
          */
 
-        $aScheduledExpression = $a->getScheduleExpression();
-        $bScheduledExpression = $b->getScheduleExpression();
+        $aScheduledDT = $a->scheduled_at;
+        $bScheduledDt = $b->scheduled_at;
 
-        $aScheduledDT = $aScheduledExpression->getNextRunDate('now', 0, true);
-        $bScheduledDt = $bScheduledExpression->getNextRunDate('now', 0, true);
+        $isAPaused = $a->status == Cron::STATUS_PAUSED;
+        $isBPaused = $b->status == Cron::STATUS_PAUSED;
 
-        if (isset($this->_pausedDbCrons[$a->getName()])) {
-            $aPausedDbCron = $this->_pausedDbCrons[$a->getName()];
-            $aScheduledDT = DateTime::createFromFormat('U.u', $aPausedDbCron->paused_mt);
+        // Paused cron has secondary priority
+        if ($isAPaused && !$isBPaused) return 1;
+        if (!$isAPaused && $isBPaused) return -1;
+
+        // Paused cron that wasn't executed for a while has higher priority
+        if ($isAPaused) {
+            $aScheduledDT = DateTime::createFromFormat('U.u', $a->paused_mt);
         }
 
-        if (isset($this->_pausedDbCrons[$b->getName()])) {
-            $bPausedDbCron = $this->_pausedDbCrons[$b->getName()];
-            $bScheduledDt = DateTime::createFromFormat('U.u', $bPausedDbCron->paused_mt);
+        if ($isBPaused) {
+            $bScheduledDt = DateTime::createFromFormat('U.u', $b->paused_mt);
         }
 
         if ($aScheduledDT == $bScheduledDt) {
