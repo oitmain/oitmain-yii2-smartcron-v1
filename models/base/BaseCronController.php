@@ -2,14 +2,6 @@
 
 namespace oitmain\yii2\smartcron\v1\models\base;
 
-use Cron\CronExpression;
-use DateInterval;
-use DateTime;
-use Exception;
-use oitmain\yii2\smartcron\v1\models\CronManager;
-use oitmain\yii2\smartcron\v1\models\CronMutex;
-use oitmain\yii2\smartcron\v1\models\CronResult;
-use oitmain\yii2\smartcron\v1\models\db\Cron;
 use Yii;
 use yii\web\Controller;
 
@@ -22,6 +14,7 @@ abstract class BaseCronController extends Controller
     {
         // Close session because it locks the process
         Yii::$app->session->close();
+        Yii::$app->set('session', null);
 
         return parent::beforeAction($action);
     }
