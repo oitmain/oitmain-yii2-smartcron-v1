@@ -13,6 +13,7 @@ use Yii;
  * @property string $end_mt
  * @property string $status
  * @property string $elapsed
+ * @property string $debug_tag
  *
  * @property Cron $cron
  */
@@ -35,7 +36,8 @@ class BaseCronDetail extends \yii\db\ActiveRecord
             [['cron_id', 'start_mt'], 'required'],
             [['cron_id'], 'integer'],
             [['start_mt', 'end_mt', 'elapsed'], 'number'],
-            [['status'], 'string']
+            [['status'], 'string'],
+            [['debug_tag'], 'string', 'max' => 100]
         ];
     }
 
@@ -51,6 +53,7 @@ class BaseCronDetail extends \yii\db\ActiveRecord
             'end_mt' => 'End Mt',
             'status' => 'Status',
             'elapsed' => 'Elapsed',
+            'debug_tag' => 'Debug Tag',
         ];
     }
 

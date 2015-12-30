@@ -273,7 +273,13 @@ abstract class BaseCron
                 $startMT = microtime(true);
 
                 $dbCronDetail = new CronDetail();
+
+                if ($dbCronDetail->isAttributeSafe('debug_tag')) {
+                    $debugTag = OitHelper::getDebugTag();
+                    $dbCronDetail->debug_tag = $debugTag ? $debugTag : null;
+                }
                 $dbCronDetail->cron_id = $dbCron->id;
+
                 $dbCronDetail->doStart($startMT);
 
                 $cronResult->cronId = $dbCron->id;
