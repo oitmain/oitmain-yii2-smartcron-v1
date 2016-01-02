@@ -69,6 +69,10 @@ abstract class BaseCron
 
     protected $_noTimeout = false;
 
+    protected $_maxDebugMemoryUsePercent = 15;
+
+    protected $_maxMemoryUsePercent = 75;
+
     public function getSchedule()
     {
         return $this->_schedule;
@@ -307,12 +311,12 @@ abstract class BaseCron
                             Yii::trace("Cron memory used " . round($memoryUsed, 2));
 
                             // Prevent memory overflow by force pausing
-                            if ($memoryUsed > 0.15 && Yii::$app->hasModule('debug')) {
+                            if ($memoryUsed > ($this->_maxDebugMemoryUsePercent / 100) && Yii::$app->hasModule('debug')) {
                                 Yii::trace("Debug mode and memory used over 15%, force pausing");
                                 $this->_pauseAfter = 0;
                             }
 
-                            if ($memoryUsed > 0.75) {
+                            if ($memoryUsed > ($this->_maxMemoryUsePercent / 100)) {
                                 Yii::trace("Memory used over 75%, force pausing");
                                 $this->_pauseAfter = 0;
                             }
